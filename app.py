@@ -1,74 +1,63 @@
-from datetime import date
-import html
-
+import io
+import pandas as pd
 import streamlit as st
 
 
 # ============================================================
-# CONFIGURAÇÃO DA PÁGINA
+# CONFIGURAÇÃO
 # ============================================================
 
 st.set_page_config(
-    page_title="Fluxograma Inteligente - Engenharia de Materiais UNIFEI",
+    page_title="Simulador de IRA - UNIFEI",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
+NOTA_APROVACAO = 6.0
+FREQUENCIA_MINIMA = 75.0
+
 
 # ============================================================
-# ESTILO - SOMENTE MODO CLARO
+# ESTILO - MODO CLARO
 # ============================================================
 
 st.markdown(
     """
 <style>
 :root {
-    --caemt-color: #4A148C;
-    --unifei-color: #0056B3;
-    --background-color: #FFFFFF;
-    --secondary-background: #F7F9FC;
-    --text-color: #1F2937;
-    --muted-color: #5F6B7A;
-    --border-color: #D8DEE8;
-
-    --suggestion-bg: #EAF7EE;
-    --suggestion-border: #18864B;
-    --suggestion-text: #126836;
-
-    --blocked-bg: #FDECEC;
-    --blocked-border: #C93434;
-    --blocked-text: #A32121;
-
-    --neutral-bg: #F7F9FC;
-    --neutral-border: #D8DEE8;
-    --neutral-text: #475467;
+    --caemt: #4A148C;
+    --unifei: #0056B3;
+    --bg: #FFFFFF;
+    --bg-soft: #F7F9FC;
+    --text: #1F2937;
+    --muted: #667085;
+    --border: #D8DEE8;
+    --green-bg: #EAF7EE;
+    --green: #126836;
+    --red-bg: #FDECEC;
+    --red: #A32121;
+    --blue-bg: #EEF4FF;
 }
 
-html,
-body,
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"] {
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
     color-scheme: light !important;
 }
 
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] {
-    background-color: var(--background-color) !important;
-    color: var(--text-color) !important;
+    background: var(--bg) !important;
+    color: var(--text) !important;
 }
 
 [data-testid="stHeader"] {
-    background-color: rgba(255, 255, 255, 0.96) !important;
+    background: rgba(255,255,255,.96) !important;
 }
 
-#MainMenu,
-footer {
-    visibility: hidden;
-}
+#MainMenu, footer { visibility: hidden; }
 
-.brand-container {
+.brand-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -76,220 +65,101 @@ footer {
     font-weight: 800;
     margin-bottom: -8px;
 }
-
-.brand-caemt {
-    color: var(--caemt-color) !important;
-}
-
-.brand-unifei {
-    color: var(--unifei-color) !important;
-}
+.brand-caemt { color: var(--caemt) !important; }
+.brand-unifei { color: var(--unifei) !important; }
 
 h1 {
     text-align: center;
-    color: var(--text-color) !important;
+    color: var(--text) !important;
     font-weight: 800;
     margin-top: 10px;
 }
 
-h2,
-h3 {
-    color: var(--text-color) !important;
-}
+h2, h3 { color: var(--text) !important; }
 
 .subtitle {
     text-align: center;
-    color: var(--muted-color) !important;
+    color: var(--muted) !important;
     margin-top: -8px;
     margin-bottom: 22px;
 }
 
-.semester-badge {
+.grade-badge {
     width: fit-content;
-    margin: 0 auto 24px auto;
+    margin: 0 auto 22px auto;
     padding: 7px 12px;
     border-radius: 999px;
-    background: #EEF4FF;
+    background: var(--blue-bg);
     border: 1px solid #C9DBF5;
-    color: var(--unifei-color) !important;
-    font-size: 0.84rem;
+    color: var(--unifei) !important;
+    font-size: .84rem;
     font-weight: 700;
+}
+
+.metric-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 15px 16px;
+    min-height: 92px;
+}
+.metric-label {
+    color: var(--muted) !important;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .45px;
+    text-transform: uppercase;
+}
+.metric-value {
+    color: var(--unifei) !important;
+    font-size: 1.7rem;
+    font-weight: 800;
+    margin-top: 5px;
+}
+
+.note-box {
+    background: #FAFBFC;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--caemt);
+    border-radius: 8px;
+    padding: 11px 13px;
+    color: var(--muted) !important;
+    font-size: .88rem;
+    margin: 8px 0 16px 0;
+}
+
+.good-box {
+    background: var(--green-bg);
+    color: var(--green) !important;
+    border: 1px solid #CAE9D5;
+    border-left: 4px solid #18864B;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0;
+}
+
+.bad-box {
+    background: var(--red-bg);
+    color: var(--red) !important;
+    border: 1px solid #F4CDCD;
+    border-left: 4px solid #C93434;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 10px 0;
 }
 
 [data-testid="stWidgetLabel"] p,
 [data-testid="stCheckbox"] p {
-    color: var(--text-color) !important;
+    color: var(--text) !important;
 }
 
-[data-testid="stExpander"] {
-    background-color: #FFFFFF !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 9px !important;
-    overflow: hidden;
-}
-
-[data-testid="stExpander"] summary {
-    background-color: var(--secondary-background) !important;
-}
-
-[data-testid="stExpander"] summary:hover {
-    background-color: #EEF2F7 !important;
-}
-
-[data-testid="stExpander"] summary p {
-    color: var(--text-color) !important;
-    font-weight: 700;
-}
-
-hr {
-    border-color: var(--border-color) !important;
-    opacity: 0.8;
-}
-
-.status-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-    padding: 18px 24px;
-    margin: 22px 0 26px 0;
-    background: var(--secondary-background);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-}
-
-.status-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    min-width: 125px;
-}
-
-.status-label {
-    color: var(--muted-color) !important;
-    font-size: 0.70rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-align: center;
-}
-
-.status-value {
-    color: var(--unifei-color) !important;
-    font-size: 1.72rem;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.status-divider {
-    width: 1px;
-    height: 42px;
-    background-color: var(--border-color);
-}
-
-.sugestao-item,
-.bloqueada-oferta,
-.bloqueada-requisito {
-    padding: 12px 15px;
-    margin-bottom: 9px;
-    border-radius: 7px;
-    font-size: 0.94rem;
-    line-height: 1.45;
-}
-
-.sugestao-item {
-    background-color: var(--suggestion-bg);
-    border: 1px solid #CAE9D5;
-    border-left: 4px solid var(--suggestion-border);
-    color: var(--suggestion-text) !important;
-}
-
-.sugestao-item strong {
-    color: var(--suggestion-text) !important;
-}
-
-.bloqueada-oferta {
-    background-color: var(--blocked-bg);
-    border: 1px solid #F4CDCD;
-    border-left: 4px solid var(--blocked-border);
-    color: var(--blocked-text) !important;
-}
-
-.bloqueada-oferta strong,
-.bloqueada-oferta span {
-    color: var(--blocked-text) !important;
-}
-
-.bloqueada-requisito {
-    background-color: var(--neutral-bg);
-    border: 1px solid var(--neutral-border);
-    border-left: 4px solid #98A2B3;
-    color: var(--neutral-text) !important;
-}
-
-.bloqueada-requisito strong,
-.bloqueada-requisito span {
-    color: var(--neutral-text) !important;
-}
-
-.aviso-oferta,
-.aviso-requisito {
-    display: block;
-    margin-top: 4px;
-    font-size: 0.80rem;
-    font-weight: 600;
-}
-
-.divisoria {
-    margin: 24px 0 13px 0;
-    padding-bottom: 7px;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--muted-color) !important;
-    font-size: 0.76rem;
-    font-weight: 800;
-    letter-spacing: 0.35px;
-}
-
-.small-note {
-    color: var(--muted-color) !important;
-    font-size: 0.82rem;
-}
+hr { border-color: var(--border) !important; opacity: .8; }
 
 @media (max-width: 768px) {
-    .brand-container {
-        font-size: 0.92rem;
-    }
-
-    h1 {
-        font-size: 1.9rem !important;
-    }
-
-    .subtitle {
-        font-size: 0.91rem;
-    }
-
-    .status-bar {
-        gap: 8px;
-        padding: 14px 6px;
-    }
-
-    .status-item {
-        min-width: 0;
-        flex: 1;
-    }
-
-    .status-label {
-        font-size: 0.57rem;
-    }
-
-    .status-value {
-        font-size: 1.30rem;
-    }
-
-    .status-divider {
-        height: 34px;
-    }
+    .brand-row { font-size: .92rem; }
+    h1 { font-size: 1.9rem !important; }
+    .subtitle { font-size: .92rem; }
+    .metric-value { font-size: 1.45rem; }
 }
 </style>
 """,
@@ -298,430 +168,800 @@ hr {
 
 
 # ============================================================
-# GRADE 2023 - ENGENHARIA DE MATERIAIS / CAMPUS ITAJUBÁ
-# ============================================================
-#
-# "oferta":
-#   impar   -> 1º semestre do ano
-#   par     -> 2º semestre do ano
-#   regular -> pode ser ofertada nos dois semestres
-#
-# "req" contém os componentes que precisam estar concluídos
-# para a disciplina aparecer como liberada no simulador.
+# GRADES CURRICULARES
 # ============================================================
 
-MATRIZ_2023 = {
-    "1º Período": {
-        "EMT101": {"nome": "Introdução à Engenharia de Materiais", "req": [], "oferta": "impar"},
-        "CCO016": {"nome": "Fundamentos de Programação", "req": [], "oferta": "regular"},
-        "IEPG21": {"nome": "Ciências Humanas e Sociais", "req": [], "oferta": "regular"},
-        "MAT00A": {"nome": "Cálculo A", "req": [], "oferta": "regular"},
-        "LET013": {"nome": "Escrita Acadêmica Científica", "req": [], "oferta": "regular"},
-        "EMT102": {"nome": "Química Geral", "req": [], "oferta": "regular"},
-        "DES005": {"nome": "Desenho Técnico Básico", "req": [], "oferta": "impar"},
-    },
-    "2º Período": {
-        "EMT037T": {"nome": "Ciência dos Materiais I - Teórica", "req": ["EMT101", "EMT102"], "oferta": "par"},
-        "EMT037P": {"nome": "Ciência dos Materiais I - Experimental", "req": ["EMT102"], "oferta": "par"},
-        "FIS210": {"nome": "Física I", "req": ["MAT00A"], "oferta": "regular"},
-        "FIS212": {"nome": "Física Experimental I", "req": [], "oferta": "regular"},
-        "MAT00B": {"nome": "Cálculo B", "req": ["MAT00A"], "oferta": "regular"},
-        "MAT00D": {"nome": "Equações Diferenciais A", "req": ["MAT00A"], "oferta": "regular"},
-        "QUI212": {"nome": "Química Geral Experimental", "req": ["EMT102"], "oferta": "regular"},
-        "EMT201": {"nome": "Química Inorgânica", "req": ["EMT102"], "oferta": "par"},
-        "DES006": {"nome": "Desenho Técnico Auxiliado por Computador", "req": ["DES005"], "oferta": "par"},
-    },
-    "3º Período": {
-        "EMT038": {"nome": "Ciência dos Materiais II", "req": ["EMT037T"], "oferta": "impar"},
-        "FIS310": {"nome": "Física II A", "req": ["FIS210", "MAT00B"], "oferta": "regular"},
-        "FIS320": {"nome": "Física II B", "req": ["FIS210", "MAT00B"], "oferta": "regular"},
-        "EME303": {"nome": "Estática", "req": ["FIS210", "MAT00A"], "oferta": "regular"},
-        "MAT00C": {"nome": "Cálculo C", "req": ["MAT00B"], "oferta": "regular"},
-        "MAT00N": {"nome": "Cálculo Numérico", "req": ["MAT00A", "CCO016"], "oferta": "regular"},
-        "EMT103": {"nome": "Físico-Química", "req": ["EMT102", "MAT00A"], "oferta": "impar"},
-        "QUI022": {"nome": "Química Orgânica", "req": ["EMT102"], "oferta": "impar"},
-    },
-    "4º Período": {
-        "EMT039": {"nome": "Termodinâmica", "req": ["EMT103"], "oferta": "par"},
-        "FIS410": {"nome": "Física III", "req": ["FIS310", "MAT00C"], "oferta": "regular"},
-        "EME405T": {"nome": "Resistência dos Materiais", "req": ["EME303"], "oferta": "regular"},
-        "IEM405P": {"nome": "Resistência dos Materiais - Experimental", "req": ["EME303"], "oferta": "regular"},
-        "MAT013": {"nome": "Probabilidade e Estatística", "req": ["MAT00B"], "oferta": "regular"},
-        "MAT00E": {"nome": "Equações Diferenciais B", "req": ["MAT00D"], "oferta": "regular"},
-        "EMT070": {"nome": "Materiais e Ambiente", "req": [], "oferta": "par"},
-        "QUI105": {"nome": "Química Analítica", "req": ["QUI212"], "oferta": "par"},
-        "QUI115": {"nome": "Química Analítica Experimental", "req": ["QUI212"], "oferta": "par"},
-    },
-    "5º Período": {
-        "EMT502T": {"nome": "Materiais Cerâmicos", "req": ["EMT038", "EMT039"], "oferta": "impar"},
-        "EMT502P": {"nome": "Materiais Cerâmicos - Experimental", "req": ["EMT038"], "oferta": "impar"},
-        "EMT501": {"nome": "Metalurgia Física", "req": ["EMT038", "EMT039"], "oferta": "impar"},
-        "EMT072": {"nome": "Produção de Ligas", "req": ["EMT038"], "oferta": "impar"},
-        "FIS510": {"nome": "Física IV A", "req": ["FIS410"], "oferta": "regular"},
-        "IEM002T": {"nome": "Fenômenos de Transporte II", "req": ["MAT00C", "MAT00E"], "oferta": "impar"},
-        "IEM002P": {"nome": "Fenômenos de Transporte II - Experimental", "req": ["MAT00C", "MAT00E"], "oferta": "impar"},
-        "EME505T": {"nome": "Resistência dos Materiais II", "req": ["EME405T"], "oferta": "impar"},
-        "IEM505P": {"nome": "Resistência dos Materiais II - Experimental", "req": ["IEM405P"], "oferta": "impar"},
-        "EMT503": {"nome": "Introdução aos Polímeros", "req": ["QUI022"], "oferta": "impar"},
-    },
-    "6º Período": {
-        "EMT049T": {"nome": "Conformação de Metais e Cerâmicas", "req": ["EME405T", "EMT502T"], "oferta": "par"},
-        "EMT049P": {"nome": "Conformação de Metais e Cerâmicas - Experimental", "req": ["EMT502P"], "oferta": "par"},
-        "EMT069": {"nome": "Diagrama de Fases", "req": ["EMT039"], "oferta": "par"},
-        "EMT071": {"nome": "Processos de Fabricação I", "req": ["EMT072"], "oferta": "par"},
-        "EMT071P": {"nome": "Processos de Fabricação I - Experimental", "req": ["EMT072"], "oferta": "par"},
-        "EMT601T": {"nome": "Comportamento Mecânico dos Materiais", "req": ["EME405T", "EMT038"], "oferta": "par"},
-        "EME605T": {"nome": "Transferência de Calor I", "req": ["IEM002T"], "oferta": "par"},
-        "EME605P": {"nome": "Transferência de Calor I - Experimental", "req": ["IEM002P"], "oferta": "par"},
-        "EEB100": {"nome": "Eletricidade Básica", "req": ["FIS320"], "oferta": "regular"},
-        "EMT047T": {"nome": "Estrutura e Propriedades dos Polímeros", "req": ["EMT503"], "oferta": "par"},
-        "EMT063": {"nome": "Reologia", "req": ["EMT503"], "oferta": "par"},
-    },
-    "7º Período": {
-        "EMT024T": {"nome": "Processamento de Materiais Cerâmicos", "req": ["EMT049T"], "oferta": "impar"},
-        "EMT024P": {"nome": "Processamento de Materiais Cerâmicos - Experimental", "req": ["EMT049P"], "oferta": "impar"},
-        "EMT025T": {"nome": "Técnicas de Caracterização de Materiais", "req": ["EMT501"], "oferta": "impar"},
-        "EMT125P": {"nome": "Técnicas de Caracterização de Materiais - Experimental", "req": ["EMT501"], "oferta": "impar"},
-        "EMT030": {"nome": "Fundamentos de Oxidação e Corrosão de Metais", "req": ["EMT039"], "oferta": "impar"},
-        "EMT066T": {"nome": "Tratamento Térmico", "req": ["EMT069"], "oferta": "impar"},
-        "EMT066P": {"nome": "Tratamento Térmico - Experimental", "req": ["EMT069"], "oferta": "impar"},
-        "EMT147P": {"nome": "Estrutura e Propriedades dos Polímeros - Experimental", "req": ["EMT047T"], "oferta": "impar"},
-        "EMT045T": {"nome": "Síntese de Polímeros", "req": ["QUI022"], "oferta": "impar"},
-        "EMT701": {"nome": "Materiais Compósitos", "req": ["EMT038"], "oferta": "impar"},
-    },
-    "8º Período": {
-        "EMT027T": {"nome": "Vidros e Vitrocerâmicos", "req": ["EMT024T"], "oferta": "par"},
-        "EMT046": {"nome": "Processamento Aplicado de Materiais Cerâmicos", "req": ["EMT024T"], "oferta": "par"},
-        "EMT067": {"nome": "Seleção de Materiais", "req": ["EMT025T"], "oferta": "par"},
-        "EMT065T": {"nome": "Processos de Fabricação II", "req": ["EMT071"], "oferta": "par"},
-        "EMT022T": {"nome": "Tratamento Superficial de Metais", "req": ["EMT030"], "oferta": "par"},
-        "EP7006": {"nome": "Higiene e Segurança do Trabalho", "req": [], "oferta": "regular"},
-        "EMT045P": {"nome": "Síntese de Polímeros - Experimental", "req": ["EMT045T"], "oferta": "par"},
-        "EMT042T": {"nome": "Processamento de Polímeros", "req": ["EMT047T", "EMT045T"], "oferta": "par"},
-        "EMT142P": {"nome": "Processamento de Polímeros - Experimental", "req": ["EMT047T"], "oferta": "par"},
-        "EMT801P": {"nome": "Processamento de Compósitos - Experimental", "req": ["EMT701"], "oferta": "par"},
-    },
-    "9º Período": {
-        "IEPG22": {"nome": "Administração Aplicada", "req": [], "oferta": "impar"},
-        "IEPG10": {"nome": "Engenharia Econômica", "req": [], "oferta": "impar"},
-        "EMT068": {"nome": "Aditivos e Reciclagem de Polímeros", "req": ["EMT042T"], "oferta": "impar"},
-    },
-    "10º Período": {
-        "ESTEMT2023": {"nome": "Estágio Supervisionado", "req": [], "oferta": "regular"},
-        "TCC1EMT2023": {"nome": "Trabalho de Conclusão de Curso I", "req": [], "oferta": "regular"},
-        "TCC2EMT2023": {"nome": "Trabalho de Conclusão de Curso II", "req": ["TCC1EMT2023"], "oferta": "regular"},
-    },
-}
+GRADES = {'2023': {'1º Período': {'EMT101': 'Introdução à Engenharia de Materiais',
+                         'CCO016': 'Fundamentos de Programação',
+                         'IEPG21': 'Ciências Humanas e Sociais',
+                         'MAT00A': 'Cálculo A',
+                         'LET013': 'Escrita Acadêmica Científica',
+                         'EMT102': 'Química Geral',
+                         'DES005': 'Desenho Técnico Básico'},
+          '2º Período': {'EMT037T': 'Ciência dos Materiais I - Teórica',
+                         'EMT037P': 'Ciência dos Materiais I - Experimental',
+                         'FIS210': 'Física I',
+                         'FIS212': 'Física Experimental I',
+                         'MAT00B': 'Cálculo B',
+                         'MAT00D': 'Equações Diferenciais A',
+                         'QUI212': 'Química Geral Experimental',
+                         'EMT201': 'Química Inorgânica',
+                         'DES006': 'Desenho Técnico Auxiliado por Computador'},
+          '3º Período': {'EMT038': 'Ciência dos Materiais II',
+                         'FIS310': 'Física II A',
+                         'FIS320': 'Física II B',
+                         'EME303': 'Estática',
+                         'MAT00C': 'Cálculo C',
+                         'MAT00N': 'Cálculo Numérico',
+                         'EMT103': 'Físico-Química',
+                         'QUI022': 'Química Orgânica'},
+          '4º Período': {'EMT039': 'Termodinâmica',
+                         'FIS410': 'Física III',
+                         'EME405T': 'Resistência dos Materiais',
+                         'IEM405P': 'Resistência dos Materiais - Experimental',
+                         'MAT013': 'Probabilidade e Estatística',
+                         'MAT00E': 'Equações Diferenciais B',
+                         'EMT070': 'Materiais e Ambiente',
+                         'QUI105': 'Química Analítica',
+                         'QUI115': 'Química Analítica Experimental'},
+          '5º Período': {'EMT502T': 'Materiais Cerâmicos',
+                         'EMT502P': 'Materiais Cerâmicos - Experimental',
+                         'EMT501': 'Metalurgia Física',
+                         'EMT072': 'Produção de Ligas',
+                         'FIS510': 'Física IV A',
+                         'IEM002T': 'Fenômenos de Transporte II',
+                         'IEM002P': 'Fenômenos de Transporte II - Experimental',
+                         'EME505T': 'Resistência dos Materiais II',
+                         'IEM505P': 'Resistência dos Materiais II - Experimental',
+                         'EMT503': 'Introdução aos Polímeros'},
+          '6º Período': {'EMT049T': 'Conformação de Metais e Cerâmicas',
+                         'EMT049P': 'Conformação de Metais e Cerâmicas - Experimental',
+                         'EMT069': 'Diagrama de Fases',
+                         'EMT071': 'Processos de Fabricação I',
+                         'EMT071P': 'Processos de Fabricação I - Experimental',
+                         'EMT601T': 'Comportamento Mecânico dos Materiais',
+                         'EME605T': 'Transferência de Calor I',
+                         'EME605P': 'Transferência de Calor I - Experimental',
+                         'EEB100': 'Eletricidade Básica',
+                         'EMT047T': 'Estrutura e Propriedades dos Polímeros',
+                         'EMT063': 'Reologia'},
+          '7º Período': {'EMT024T': 'Processamento de Materiais Cerâmicos',
+                         'EMT024P': 'Processamento de Materiais Cerâmicos - Experimental',
+                         'EMT025T': 'Técnicas de Caracterização de Materiais',
+                         'EMT125P': 'Técnicas de Caracterização de Materiais - Experimental',
+                         'EMT030': 'Fundamentos de Oxidação e Corrosão de Metais',
+                         'EMT066T': 'Tratamento Térmico',
+                         'EMT066P': 'Tratamento Térmico - Experimental',
+                         'EMT147P': 'Estrutura e Propriedades dos Polímeros - Experimental',
+                         'EMT045T': 'Síntese de Polímeros',
+                         'EMT701': 'Materiais Compósitos'},
+          '8º Período': {'EMT027T': 'Vidros e Vitrocerâmicos',
+                         'EMT046': 'Processamento Aplicado de Materiais Cerâmicos',
+                         'EMT067': 'Seleção de Materiais',
+                         'EMT065T': 'Processos de Fabricação II',
+                         'EMT022T': 'Tratamento Superficial de Metais',
+                         'EP7006': 'Higiene e Segurança do Trabalho',
+                         'EMT045P': 'Síntese de Polímeros - Experimental',
+                         'EMT042T': 'Processamento de Polímeros',
+                         'EMT142P': 'Processamento de Polímeros - Experimental',
+                         'EMT801P': 'Processamento de Compósitos - Experimental'},
+          '9º Período': {'IEPG22': 'Administração Aplicada',
+                         'IEPG10': 'Engenharia Econômica',
+                         'EMT068': 'Aditivos e Reciclagem de Polímeros'},
+          '10º Período': {'ESTEMT2023': 'Estágio Supervisionado',
+                          'TCC1EMT2023': 'Trabalho de Conclusão de Curso I',
+                          'TCC2EMT2023': 'Trabalho de Conclusão de Curso II'}},
+ '2016': {'1º Período': {'EMT101': 'Introdução à EMT',
+                         'CCO016': 'Fundamentos de Programação',
+                         'SOC002': 'Ciências Humanas e Sociais',
+                         'MAT001': 'Cálculo I',
+                         'MAT011': 'Geometria Analítica e Álgebra Linear',
+                         'FIS104': 'Mecânica Geral',
+                         'FIS114': 'Laboratório de Mecânica Geral'},
+          '2º Período': {'EMT037T': 'Ciência dos Materiais I - Teórica',
+                         'EMT037P': 'Ciência dos Materiais I - Experimental',
+                         'FIS203': 'Física Geral I',
+                         'FIS213': 'Física Experimental I',
+                         'MAT002': 'Cálculo II',
+                         'EMT102': 'Química Geral',
+                         'BAC002': 'Língua Comum'},
+          '3º Período': {'EMT038': 'Ciência dos Materiais II',
+                         'FIS303': 'Estática',
+                         'EME303': 'Resistência dos Materiais - Teórica',
+                         'FIS403': 'Física Geral III',
+                         'MAT003': 'Cálculo III',
+                         'EMT103': 'Físico-Química',
+                         'QUI022': 'Química Orgânica'},
+          '4º Período': {'EMT039': 'Termodinâmica',
+                         'EME405T': 'Resistência dos Materiais - Experimental',
+                         'EME405P': 'Mecânica dos Sólidos - Teórica',
+                         'MAT013': 'Probabilidade e Estatística',
+                         'MAT021': 'Equações Diferenciais',
+                         'QUI105': 'Química Analítica',
+                         'QUI115': 'Química Analítica Experimental'},
+          '5º Período': {'EMT002T': 'Materiais Cerâmicos - Teórica',
+                         'EMT002P': 'Materiais Cerâmicos - Experimental',
+                         'EME313T': 'Fenômenos de Transporte - Teórica',
+                         'EME313P': 'Fenômenos de Transporte - Experimental',
+                         'EME505T': 'Resistência dos Materiais II - Teórica',
+                         'EME505P': 'Resistência dos Materiais II - Experimental',
+                         'EMT072': 'Produção de Ligas'},
+          '6º Período': {'EMT049T': 'Conformação de Metais - Teórica',
+                         'EMT049P': 'Conformação de Metais - Experimental',
+                         'EMT412T': 'Estrutura e Propriedades Polímeros - Teórica',
+                         'EMT412P': 'Estrutura e Propriedades Polímeros - Experimental',
+                         'EME047T': 'Estrutura e Propriedades Polímeros - Teórica',
+                         'EMT147P': 'Estrutura e Propriedades Polímeros - Experimental',
+                         'EMT071': 'Processos de Fabricação I - Experimental',
+                         'EME039T': 'Fenômenos de Transporte II - Teórica',
+                         'EME039P': 'Fenômenos de Transporte II - Experimental'},
+          '7º Período': {'EMT024T': 'Processamento de Materiais Cerâmicos - Teórica',
+                         'EMT024P': 'Processamento de Materiais Cerâmicos - Experimental',
+                         'EMT025T': 'Técnicas de Caracterização de Materiais',
+                         'EMT125P': 'Técnicas de Caracterização - Experimental',
+                         'EMT030': 'Fundamentos de Oxidação e Corrosão',
+                         'EMT066T': 'Tratamento Térmico - Teórica',
+                         'EMT066P': 'Tratamento Térmico - Experimental',
+                         'EAM002': 'Ciência de Materiais',
+                         'EMT067': 'Seleção de Materiais'},
+          '8º Período': {'EMT027T': 'Vidros e Vitrocerâmicos',
+                         'EMT046': 'Processamento de Materiais Cerâmicos II',
+                         'EMT065T': 'Processos de Fabricação II',
+                         'EMT022T': 'Tratamento Superficial de Metais',
+                         'EMT042T': 'Processamento de Polímeros - Teórica',
+                         'EMT142P': 'Processamento de Polímeros - Experimental',
+                         'EPR220': 'Higiene e Segurança do Trabalho',
+                         'EPR002': 'Organização Industrial e Administração'},
+          '9º Período': {'IEPG01': 'Administração e Economia', 'TCC001': 'Trabalho de Conclusão de Curso I'},
+          '10º Período': {'EST001': 'Estágio Supervisionado', 'TCC002': 'Trabalho de Conclusão de Curso II'}}}
 
 
 # ============================================================
-# FUNÇÕES AUXILIARES
+# FUNÇÕES DE DADOS E CÁLCULO
 # ============================================================
 
-
-def todas_as_disciplinas():
-    """Retorna um dicionário código -> dados para toda a matriz."""
-    resultado = {}
-
-    for periodo, materias in MATRIZ_2023.items():
-        for codigo, dados in materias.items():
-            resultado[codigo] = {
-                **dados,
+def catalogo_grade(grade):
+    catalogo = {}
+    for periodo, materias in GRADES[grade].items():
+        for codigo, nome in materias.items():
+            catalogo[codigo] = {
+                "codigo": codigo,
+                "nome": nome,
                 "periodo": periodo,
             }
-
-    return resultado
-
-
-DISCIPLINAS = todas_as_disciplinas()
+    return catalogo
 
 
-def proximo_semestre_referencia(hoje=None):
-    """Retorna (oferta, texto) para o próximo semestre civil."""
-    hoje = hoje or date.today()
-
-    if hoje.month <= 6:
-        return "par", f"2º semestre de {hoje.year}"
-
-    return "impar", f"1º semestre de {hoje.year + 1}"
-
-
-def chave_checkbox(codigo):
-    return f"concluida_{codigo}"
+def opcoes_disciplinas(grade, incluir_outra=True):
+    opcoes = []
+    for periodo, materias in GRADES[grade].items():
+        for codigo, nome in materias.items():
+            opcoes.append(f"{codigo} — {nome} · {periodo}")
+    if incluir_outra:
+        opcoes.append("OUTRA — Optativa, equivalência ou componente não listado")
+    return opcoes
 
 
-def inicializar_estado():
-    for codigo in DISCIPLINAS:
-        chave = chave_checkbox(codigo)
-        if chave not in st.session_state:
-            st.session_state[chave] = False
+def dados_da_opcao(grade, opcao):
+    if opcao.startswith("OUTRA —"):
+        return None
+    codigo = opcao.split(" — ", 1)[0]
+    return catalogo_grade(grade).get(codigo)
 
 
-def disciplinas_concluidas():
-    return {
-        codigo
-        for codigo in DISCIPLINAS
-        if st.session_state.get(chave_checkbox(codigo), False)
-    }
+def determinar_situacao(nota, frequencia):
+    if frequencia < FREQUENCIA_MINIMA:
+        return "Reprovado por frequência"
+    if nota < NOTA_APROVACAO:
+        return "Reprovado por nota"
+    return "Aprovado"
 
 
-def marcar_periodo(periodo, valor):
-    for codigo in MATRIZ_2023[periodo]:
-        st.session_state[chave_checkbox(codigo)] = valor
+def calcular_ira(disciplinas):
+    if not disciplinas:
+        return None, 0.0, 0.0
+
+    soma_ponderada = sum(float(d["nota"]) * float(d["ch"]) for d in disciplinas)
+    ch_total = sum(float(d["ch"]) for d in disciplinas)
+
+    if ch_total <= 0:
+        return None, 0.0, 0.0
+
+    return soma_ponderada / ch_total, ch_total, soma_ponderada
 
 
-def limpar_todas():
-    for codigo in DISCIPLINAS:
-        st.session_state[chave_checkbox(codigo)] = False
+def calcular_novo_ira(ira_atual, ch_atual, nota, ch_nova):
+    denominador = ch_atual + ch_nova
+    if denominador <= 0:
+        return None
+    return ((ira_atual * ch_atual) + (nota * ch_nova)) / denominador
 
 
-def escapar(texto):
-    return html.escape(str(texto))
+def calcular_nota_necessaria(ira_atual, ch_atual, ch_nova, ira_alvo):
+    if ch_nova <= 0:
+        return None
+    return (ira_alvo * (ch_atual + ch_nova) - ira_atual * ch_atual) / ch_nova
 
 
-def renderizar_disponivel(codigo, dados):
-    codigo_html = escapar(codigo)
-    nome_html = escapar(dados["nome"])
+def calcular_media_necessaria_semestre(ira_atual, ch_atual, ch_semestre, ira_alvo):
+    if ch_semestre <= 0:
+        return None
+    return (ira_alvo * (ch_atual + ch_semestre) - ira_atual * ch_atual) / ch_semestre
 
-    st.markdown(
-        '<div class="sugestao-item">'
-        f'<strong>{codigo_html}</strong> - {nome_html}'
-        '</div>',
-        unsafe_allow_html=True,
+
+def chave_grade(prefixo, grade):
+    return f"{prefixo}_{grade}"
+
+
+def init_state():
+    if "grade_ira" not in st.session_state:
+        st.session_state.grade_ira = "2023"
+
+    for grade in GRADES:
+        hkey = chave_grade("historico", grade)
+        skey = chave_grade("semestre", grade)
+        nkey = chave_grade("next_id", grade)
+        snkey = chave_grade("next_sim_id", grade)
+
+        if hkey not in st.session_state:
+            st.session_state[hkey] = []
+        if skey not in st.session_state:
+            st.session_state[skey] = []
+        if nkey not in st.session_state:
+            st.session_state[nkey] = 1
+        if snkey not in st.session_state:
+            st.session_state[snkey] = 1
+
+
+def historico_atual(grade):
+    return st.session_state[chave_grade("historico", grade)]
+
+
+def semestre_atual(grade):
+    return st.session_state[chave_grade("semestre", grade)]
+
+
+def formatar_ch(valor):
+    valor = float(valor)
+    return str(int(valor)) if valor.is_integer() else f"{valor:g}"
+
+
+def base_de_calculo(modo, grade, ira_manual=None, ch_manual=None):
+    if modo == "Usar histórico cadastrado":
+        ira, ch, _ = calcular_ira(historico_atual(grade))
+        return ira, ch
+    return float(ira_manual), float(ch_manual)
+
+
+def df_historico(disciplinas):
+    return pd.DataFrame(
+        [
+            {
+                "ID": d["id"],
+                "Código": d["codigo"],
+                "Disciplina": d["nome"],
+                "Período": d["periodo"],
+                "Nota": d["nota"],
+                "CH (h)": d["ch"],
+                "Frequência": f'{d["frequencia"]:.1f}%',
+                "Situação": d["situacao"],
+                "Nota × CH": round(d["nota"] * d["ch"], 2),
+            }
+            for d in disciplinas
+        ]
     )
 
 
-def renderizar_nao_ofertada(codigo, dados, semestre_destino):
-    codigo_html = escapar(codigo)
-    nome_html = escapar(dados["nome"])
-
-    if dados["oferta"] == "impar":
-        oferta_texto = "Componente previsto para o 1º semestre do ano."
-    else:
-        oferta_texto = "Componente previsto para o 2º semestre do ano."
-
-    st.markdown(
-        '<div class="bloqueada-oferta">'
-        f'<strong>{codigo_html}</strong> - {nome_html}'
-        f'<span class="aviso-oferta">{escapar(oferta_texto)} Destino atual: {escapar(semestre_destino)}.</span>'
-        '</div>',
-        unsafe_allow_html=True,
+def df_semestre(disciplinas):
+    return pd.DataFrame(
+        [
+            {
+                "ID": d["id"],
+                "Código": d["codigo"],
+                "Disciplina": d["nome"],
+                "Período": d["periodo"],
+                "Nota simulada": d["nota"],
+                "CH (h)": d["ch"],
+            }
+            for d in disciplinas
+        ]
     )
 
 
-def renderizar_bloqueada(codigo, dados, faltantes):
-    codigo_html = escapar(codigo)
-    nome_html = escapar(dados["nome"])
-    faltantes_html = ", ".join(escapar(item) for item in faltantes)
-
-    st.markdown(
-        '<div class="bloqueada-requisito">'
-        f'<strong>{codigo_html}</strong> - {nome_html}'
-        f'<span class="aviso-requisito">Falta concluir: {faltantes_html}</span>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+init_state()
 
 
 # ============================================================
-# INICIALIZAÇÃO
-# ============================================================
-
-inicializar_estado()
-semestre_oferta, semestre_texto = proximo_semestre_referencia()
-
-
-# ============================================================
-# CABEÇALHO
+# CABEÇALHO E GRADE
 # ============================================================
 
 st.markdown(
-    '<div class="brand-container">'
+    '<div class="brand-row">'
     '<div class="brand-caemt">CAEMT</div>'
     '<div class="brand-unifei">UNIFEI</div>'
     '</div>',
     unsafe_allow_html=True,
 )
 
-st.markdown("<h1>Fluxograma Inteligente</h1>", unsafe_allow_html=True)
-
+st.markdown("<h1>Simulador de IRA</h1>", unsafe_allow_html=True)
 st.markdown(
-    '<p class="subtitle">'
-    'Grade 2023 - Engenharia de Materiais, Campus Itajubá. '
-    'Marque apenas as disciplinas que você já concluiu.'
-    '</p>',
+    '<p class="subtitle">Calcule o IRA, projete notas futuras e descubra quanto precisa tirar para alcançar uma meta.</p>',
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    f'<div class="semester-badge">Planejamento automático: {escapar(semestre_texto)}</div>',
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# CONTROLES RÁPIDOS
-# ============================================================
-
-controle1, controle2, espaco = st.columns([1, 1, 4])
-
-with controle1:
-    if st.button("Limpar seleção", use_container_width=True):
-        limpar_todas()
-        st.rerun()
-
-with controle2:
-    st.caption("A seleção fica apenas nesta sessão.")
-
-st.markdown("---")
-
-
-# ============================================================
-# LAYOUT PRINCIPAL
-# ============================================================
-
-col_esquerda, col_direita = st.columns([1.18, 0.82], gap="large")
-
-
-# ============================================================
-# COLUNA ESQUERDA - TODAS AS DISCIPLINAS
-# ============================================================
-
-with col_esquerda:
-    st.markdown("### 1. Disciplinas concluídas")
-    st.caption("Abra os períodos e marque somente o que já foi concluído.")
-
-    for periodo, materias in MATRIZ_2023.items():
-        concluidas_periodo = sum(
-            1
-            for codigo in materias
-            if st.session_state.get(chave_checkbox(codigo), False)
-        )
-
-        titulo = f"{periodo} - {concluidas_periodo}/{len(materias)} concluídas"
-
-        with st.expander(titulo, expanded=periodo in {"1º Período", "2º Período"}):
-            botao1, botao2 = st.columns(2)
-
-            with botao1:
-                if st.button(
-                    "Marcar período inteiro",
-                    key=f"marcar_{periodo}",
-                    use_container_width=True,
-                ):
-                    marcar_periodo(periodo, True)
-                    st.rerun()
-
-            with botao2:
-                if st.button(
-                    "Desmarcar período",
-                    key=f"desmarcar_{periodo}",
-                    use_container_width=True,
-                ):
-                    marcar_periodo(periodo, False)
-                    st.rerun()
-
-            for codigo, dados in materias.items():
-                st.checkbox(
-                    f"**{codigo}** - {dados['nome']}",
-                    key=chave_checkbox(codigo),
-                )
-
-
-# ============================================================
-# CÁLCULOS DO ESTADO ATUAL
-# ============================================================
-
-concluidas = disciplinas_concluidas()
-total_materias = len(DISCIPLINAS)
-total_concluidas = len(concluidas)
-progresso = round((total_concluidas / total_materias) * 100) if total_materias else 0
-
-liberadas = []
-liberadas_nao_ofertadas = []
-bloqueadas = []
-
-for codigo, dados in DISCIPLINAS.items():
-    if codigo in concluidas:
-        continue
-
-    faltantes = [req for req in dados["req"] if req not in concluidas]
-
-    if faltantes:
-        bloqueadas.append((codigo, dados, faltantes))
-        continue
-
-    if dados["oferta"] == "regular" or dados["oferta"] == semestre_oferta:
-        liberadas.append((codigo, dados))
-    else:
-        liberadas_nao_ofertadas.append((codigo, dados))
-
-
-# ============================================================
-# BARRA DE STATUS
-# ============================================================
+col_grade, col_info = st.columns([1, 2])
+with col_grade:
+    grade = st.selectbox(
+        "Grade curricular",
+        options=["2023", "2016"],
+        key="grade_ira",
+    )
+with col_info:
+    st.markdown(
+        f'<div class="grade-badge">Engenharia de Materiais · Grade {grade}</div>',
+        unsafe_allow_html=True,
+    )
 
 st.markdown(
-    '<div class="status-bar">'
-    '<div class="status-item">'
-    '<div class="status-label">Concluídas</div>'
-    f'<div class="status-value">{total_concluidas}</div>'
-    '</div>'
-    '<div class="status-divider"></div>'
-    '<div class="status-item">'
-    '<div class="status-label">Total da grade</div>'
-    f'<div class="status-value">{total_materias}</div>'
-    '</div>'
-    '<div class="status-divider"></div>'
-    '<div class="status-item">'
-    '<div class="status-label">Progresso</div>'
-    f'<div class="status-value">{progresso}%</div>'
-    '</div>'
+    '<div class="note-box">'
+    'As grades servem para selecionar o código e o nome da disciplina. '
+    'Informe a carga horária em horas conforme o seu histórico/SIGAA; ela é o peso usado no cálculo do IRA.'
     '</div>',
     unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# COLUNA DIREITA - RESULTADOS
+# ABAS
 # ============================================================
 
-with col_direita:
-    st.markdown("### 2. Situação para o próximo semestre")
-    st.caption(f"Análise para {semestre_texto}.")
+aba_historico, aba_meta, aba_semestre = st.tabs(
+    ["📚 Meu IRA", "🎯 Nota necessária", "📈 Simular semestre"]
+)
 
-    if liberadas:
-        st.markdown(
-            '<div class="divisoria">DISCIPLINAS LIBERADAS</div>',
-            unsafe_allow_html=True,
+
+# ============================================================
+# ABA 1 - HISTÓRICO
+# ============================================================
+
+with aba_historico:
+    st.subheader("Histórico acadêmico")
+    st.caption("Selecione as disciplinas concluídas e informe a nota final, a carga horária e a frequência.")
+
+    catalogo = catalogo_grade(grade)
+    opcoes = opcoes_disciplinas(grade)
+
+    with st.form(f"form_historico_{grade}", clear_on_submit=False):
+        c1, c2 = st.columns([2.4, 1])
+        with c1:
+            opcao = st.selectbox("Disciplina", opcoes, key=f"hist_disc_{grade}")
+        with c2:
+            ch = st.number_input(
+                "Carga horária (h)",
+                min_value=1.0,
+                max_value=1000.0,
+                value=64.0,
+                step=1.0,
+                key=f"hist_ch_{grade}",
+            )
+
+        selecionada = dados_da_opcao(grade, opcao)
+        outra = selecionada is None
+
+        if outra:
+            c_cod, c_nome = st.columns([1, 3])
+            with c_cod:
+                codigo_custom = st.text_input("Código", value="OPT", key=f"hist_cod_{grade}")
+            with c_nome:
+                nome_custom = st.text_input("Nome da disciplina", key=f"hist_nome_{grade}")
+        else:
+            codigo_custom = selecionada["codigo"]
+            nome_custom = selecionada["nome"]
+
+        n1, n2 = st.columns(2)
+        with n1:
+            nota = st.number_input(
+                "Nota final",
+                min_value=0.0,
+                max_value=10.0,
+                value=6.0,
+                step=0.1,
+                format="%.1f",
+                key=f"hist_nota_{grade}",
+            )
+        with n2:
+            frequencia = st.number_input(
+                "Frequência (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=75.0,
+                step=1.0,
+                format="%.1f",
+                key=f"hist_freq_{grade}",
+            )
+
+        enviar = st.form_submit_button("➕ Adicionar ao histórico", use_container_width=True)
+
+        if enviar:
+            if outra and not nome_custom.strip():
+                st.error("Informe o nome da disciplina.")
+            else:
+                periodo = selecionada["periodo"] if selecionada else "Outro"
+                codigo = codigo_custom.strip() or "—"
+                nome = nome_custom.strip()
+
+                item = {
+                    "id": st.session_state[chave_grade("next_id", grade)],
+                    "codigo": codigo,
+                    "nome": nome,
+                    "periodo": periodo,
+                    "nota": float(nota),
+                    "ch": float(ch),
+                    "frequencia": float(frequencia),
+                    "situacao": determinar_situacao(float(nota), float(frequencia)),
+                }
+                historico_atual(grade).append(item)
+                st.session_state[chave_grade("next_id", grade)] += 1
+                st.rerun()
+
+    disciplinas = historico_atual(grade)
+    ira, ch_total, soma_ponderada = calcular_ira(disciplinas)
+
+    st.divider()
+
+    if disciplinas:
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">IRA calculado</div>'
+                f'<div class="metric-value">{ira:.3f}</div></div>',
+                unsafe_allow_html=True,
+            )
+        with m2:
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">Carga horária</div>'
+                f'<div class="metric-value">{formatar_ch(ch_total)} h</div></div>',
+                unsafe_allow_html=True,
+            )
+        with m3:
+            aprovadas = sum(1 for d in disciplinas if d["situacao"] == "Aprovado")
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">Aprovações</div>'
+                f'<div class="metric-value">{aprovadas}</div></div>',
+                unsafe_allow_html=True,
+            )
+        with m4:
+            reprovadas = len(disciplinas) - aprovadas
+            st.markdown(
+                f'<div class="metric-card"><div class="metric-label">Reprovações</div>'
+                f'<div class="metric-value">{reprovadas}</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        st.dataframe(df_historico(disciplinas), use_container_width=True, hide_index=True)
+
+        g1, g2, g3 = st.columns([2, 1, 1])
+        with g1:
+            mapa = {
+                f'{d["id"]} — {d["codigo"]} — {d["nome"]}': d["id"]
+                for d in disciplinas
+            }
+            remover_label = st.selectbox("Remover disciplina", list(mapa), key=f"remove_hist_{grade}")
+        with g2:
+            st.write("")
+            st.write("")
+            if st.button("Remover", key=f"btn_remove_hist_{grade}", use_container_width=True):
+                alvo = mapa[remover_label]
+                st.session_state[chave_grade("historico", grade)] = [
+                    d for d in disciplinas if d["id"] != alvo
+                ]
+                st.rerun()
+        with g3:
+            st.write("")
+            st.write("")
+            if st.button("Limpar tudo", key=f"clear_hist_{grade}", use_container_width=True):
+                st.session_state[chave_grade("historico", grade)] = []
+                st.rerun()
+
+        csv = df_historico(disciplinas).to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "⬇️ Exportar histórico em CSV",
+            data=csv,
+            file_name=f"historico_ira_grade_{grade}.csv",
+            mime="text/csv",
+            use_container_width=True,
         )
 
-        for codigo, dados in liberadas:
-            renderizar_disponivel(codigo, dados)
     else:
-        st.info("Nenhuma disciplina foi identificada como liberada neste momento.")
+        st.info("Nenhuma disciplina foi adicionada para esta grade.")
 
-    if liberadas_nao_ofertadas:
-        st.markdown(
-            '<div class="divisoria">LIBERADAS, MAS FORA DO SEMESTRE DE OFERTA</div>',
-            unsafe_allow_html=True,
+
+# ============================================================
+# ABA 2 - NOTA NECESSÁRIA
+# ============================================================
+
+with aba_meta:
+    st.subheader("Qual nota preciso tirar?")
+
+    modo = st.radio(
+        "Base do cálculo",
+        ["Usar histórico cadastrado", "Informar IRA atual manualmente"],
+        horizontal=True,
+        key=f"modo_meta_{grade}",
+    )
+
+    ira_base = None
+    ch_base = None
+
+    if modo == "Usar histórico cadastrado":
+        ira_base, ch_base, _ = calcular_ira(historico_atual(grade))
+        if ira_base is None:
+            st.warning("Adicione disciplinas na aba Meu IRA ou use o modo manual.")
+        else:
+            b1, b2 = st.columns(2)
+            b1.metric("IRA atual", f"{ira_base:.3f}")
+            b2.metric("CH considerada", f"{formatar_ch(ch_base)} h")
+    else:
+        b1, b2 = st.columns(2)
+        with b1:
+            ira_base = st.number_input(
+                "IRA atual",
+                min_value=0.0,
+                max_value=10.0,
+                value=7.0,
+                step=0.01,
+                format="%.3f",
+                key=f"meta_ira_manual_{grade}",
+            )
+        with b2:
+            ch_base = st.number_input(
+                "Carga horária já considerada no IRA",
+                min_value=0.0,
+                max_value=10000.0,
+                value=500.0,
+                step=1.0,
+                key=f"meta_ch_manual_{grade}",
+            )
+
+    if ira_base is not None:
+        st.divider()
+        op_meta = st.selectbox(
+            "Disciplina que você quer simular",
+            opcoes_disciplinas(grade),
+            key=f"meta_disc_{grade}",
         )
+        d_meta = dados_da_opcao(grade, op_meta)
 
-        for codigo, dados in liberadas_nao_ofertadas:
-            renderizar_nao_ofertada(codigo, dados, semestre_texto)
+        c1, c2 = st.columns(2)
+        with c1:
+            ch_nova = st.number_input(
+                "Carga horária da disciplina (h)",
+                min_value=1.0,
+                max_value=1000.0,
+                value=64.0,
+                step=1.0,
+                key=f"meta_ch_nova_{grade}",
+            )
+        with c2:
+            alvo_default = min(10.0, float(ira_base) + 0.10)
+            ira_alvo = st.number_input(
+                "IRA desejado",
+                min_value=0.0,
+                max_value=10.0,
+                value=alvo_default,
+                step=0.01,
+                format="%.3f",
+                key=f"meta_alvo_{grade}",
+            )
 
-    if bloqueadas:
-        with st.expander(f"Ver disciplinas ainda bloqueadas ({len(bloqueadas)})"):
-            for codigo, dados, faltantes in bloqueadas:
-                renderizar_bloqueada(codigo, dados, faltantes)
+        necessaria = calcular_nota_necessaria(float(ira_base), float(ch_base), float(ch_nova), float(ira_alvo))
+
+        st.subheader("Resultado")
+        if necessaria > 10:
+            maximo = calcular_novo_ira(float(ira_base), float(ch_base), 10.0, float(ch_nova))
+            st.error(
+                f"A meta não é alcançável apenas com essa disciplina. "
+                f"A nota matemática necessária seria {necessaria:.2f}; com 10,0, o IRA iria para {maximo:.3f}."
+            )
+        elif necessaria <= 0:
+            st.success(
+                f"O IRA-alvo já é atingido mesmo com nota 0,0 nessa disciplina. "
+                f"Para aprovação por nota, porém, considere a média mínima de {NOTA_APROVACAO:.1f}."
+            )
+        else:
+            st.metric("Nota necessária", f"{necessaria:.2f}")
+            nome_alvo = d_meta["nome"] if d_meta else "a disciplina selecionada"
+            if necessaria < NOTA_APROVACAO:
+                ira_com_6 = calcular_novo_ira(float(ira_base), float(ch_base), NOTA_APROVACAO, float(ch_nova))
+                st.warning(
+                    f"Matematicamente, {necessaria:.2f} basta para o IRA-alvo, mas é inferior à média de aprovação por nota. "
+                    f"Com 6,0 em {nome_alvo}, o IRA projetado seria {ira_com_6:.3f}."
+                )
+            else:
+                st.success(
+                    f"Você precisa de aproximadamente {necessaria:.2f} em {nome_alvo} para alcançar IRA {ira_alvo:.3f}."
+                )
+
+
+# ============================================================
+# ABA 3 - SIMULAR SEMESTRE
+# ============================================================
+
+with aba_semestre:
+    st.subheader("Simular várias disciplinas futuras")
+
+    modo_sem = st.radio(
+        "Base do cálculo",
+        ["Usar histórico cadastrado", "Informar IRA atual manualmente"],
+        horizontal=True,
+        key=f"modo_sem_{grade}",
+    )
+
+    ira_sem = None
+    ch_sem_base = None
+
+    if modo_sem == "Usar histórico cadastrado":
+        ira_sem, ch_sem_base, _ = calcular_ira(historico_atual(grade))
+        if ira_sem is None:
+            st.warning("Adicione disciplinas na aba Meu IRA ou use o modo manual.")
+    else:
+        s1, s2 = st.columns(2)
+        with s1:
+            ira_sem = st.number_input(
+                "IRA atual",
+                min_value=0.0,
+                max_value=10.0,
+                value=7.0,
+                step=0.01,
+                format="%.3f",
+                key=f"sem_ira_manual_{grade}",
+            )
+        with s2:
+            ch_sem_base = st.number_input(
+                "Carga horária acumulada",
+                min_value=0.0,
+                max_value=10000.0,
+                value=500.0,
+                step=1.0,
+                key=f"sem_ch_manual_{grade}",
+            )
+
+    if ira_sem is not None:
+        st.divider()
+
+        with st.form(f"form_semestre_{grade}", clear_on_submit=False):
+            opcao_sem = st.selectbox(
+                "Adicionar disciplina futura",
+                opcoes_disciplinas(grade),
+                key=f"sem_disc_{grade}",
+            )
+            d_sem = dados_da_opcao(grade, opcao_sem)
+
+            if d_sem is None:
+                oc1, oc2 = st.columns([1, 3])
+                with oc1:
+                    cod_sem = st.text_input("Código", value="OPT", key=f"sem_cod_{grade}")
+                with oc2:
+                    nome_sem = st.text_input("Nome da disciplina", key=f"sem_nome_{grade}")
+                periodo_sem = "Outro"
+            else:
+                cod_sem = d_sem["codigo"]
+                nome_sem = d_sem["nome"]
+                periodo_sem = d_sem["periodo"]
+
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                nota_sem = st.number_input(
+                    "Nota simulada",
+                    min_value=0.0,
+                    max_value=10.0,
+                    value=7.0,
+                    step=0.1,
+                    format="%.1f",
+                    key=f"sem_nota_{grade}",
+                )
+            with sc2:
+                ch_sem = st.number_input(
+                    "Carga horária (h)",
+                    min_value=1.0,
+                    max_value=1000.0,
+                    value=64.0,
+                    step=1.0,
+                    key=f"sem_ch_{grade}",
+                )
+
+            add_sem = st.form_submit_button("➕ Adicionar à simulação", use_container_width=True)
+
+            if add_sem:
+                if d_sem is None and not nome_sem.strip():
+                    st.error("Informe o nome da disciplina.")
+                else:
+                    item = {
+                        "id": st.session_state[chave_grade("next_sim_id", grade)],
+                        "codigo": cod_sem.strip() or "—",
+                        "nome": nome_sem.strip(),
+                        "periodo": periodo_sem,
+                        "nota": float(nota_sem),
+                        "ch": float(ch_sem),
+                    }
+                    semestre_atual(grade).append(item)
+                    st.session_state[chave_grade("next_sim_id", grade)] += 1
+                    st.rerun()
+
+        simuladas = semestre_atual(grade)
+
+        if simuladas:
+            ch_futura = sum(d["ch"] for d in simuladas)
+            pontos_futuros = sum(d["nota"] * d["ch"] for d in simuladas)
+            media_semestre = pontos_futuros / ch_futura
+            novo_ira = ((ira_sem * ch_sem_base) + pontos_futuros) / (ch_sem_base + ch_futura)
+            variacao = novo_ira - ira_sem
+
+            q1, q2, q3, q4 = st.columns(4)
+            q1.metric("IRA atual", f"{ira_sem:.3f}")
+            q2.metric("IRA projetado", f"{novo_ira:.3f}", delta=f"{variacao:+.3f}")
+            q3.metric("Média do semestre", f"{media_semestre:.2f}")
+            q4.metric("CH futura", f"{formatar_ch(ch_futura)} h")
+
+            st.dataframe(df_semestre(simuladas), use_container_width=True, hide_index=True)
+
+            r1, r2 = st.columns([2, 1])
+            with r1:
+                mapa_sem = {
+                    f'{d["id"]} — {d["codigo"]} — {d["nome"]}': d["id"]
+                    for d in simuladas
+                }
+                rem_sem = st.selectbox("Remover da simulação", list(mapa_sem), key=f"remove_sem_{grade}")
+            with r2:
+                st.write("")
+                st.write("")
+                if st.button("Remover", key=f"btn_remove_sem_{grade}", use_container_width=True):
+                    alvo = mapa_sem[rem_sem]
+                    st.session_state[chave_grade("semestre", grade)] = [
+                        d for d in simuladas if d["id"] != alvo
+                    ]
+                    st.rerun()
+
+            if st.button("Limpar simulação", key=f"clear_sem_{grade}"):
+                st.session_state[chave_grade("semestre", grade)] = []
+                st.rerun()
+
+            st.divider()
+            st.markdown("#### Meta para o fim do semestre")
+            ira_meta_sem = st.number_input(
+                "IRA desejado após essas disciplinas",
+                min_value=0.0,
+                max_value=10.0,
+                value=min(10.0, float(ira_sem) + 0.10),
+                step=0.01,
+                format="%.3f",
+                key=f"ira_meta_sem_{grade}",
+            )
+            media_necessaria = calcular_media_necessaria_semestre(
+                float(ira_sem), float(ch_sem_base), float(ch_futura), float(ira_meta_sem)
+            )
+
+            if media_necessaria > 10:
+                st.error(
+                    f"Para chegar a IRA {ira_meta_sem:.3f} com essa carga horária futura, "
+                    f"seria necessária média {media_necessaria:.2f}, acima de 10,0."
+                )
+            elif media_necessaria <= 0:
+                st.success("A meta já é mantida mesmo com média 0,0 nas disciplinas futuras.")
+            else:
+                st.info(
+                    f"Considerando apenas a carga horária das disciplinas adicionadas, "
+                    f"a média ponderada necessária no semestre é aproximadamente {media_necessaria:.2f}."
+                )
+        else:
+            st.info("Adicione uma ou mais disciplinas para projetar o IRA do semestre.")
 
 
 # ============================================================
 # RODAPÉ
 # ============================================================
 
-st.markdown("---")
+st.divider()
 st.caption(
-    "Ferramenta independente e não oficial. A disponibilidade real de turmas, "
-    "regras acadêmicas e eventuais alterações curriculares devem ser conferidas no SIGAA/UNIFEI."
+    "Ferramenta independente e não oficial. O cálculo é uma simulação e os valores oficiais devem ser conferidos no SIGAA/UNIFEI."
 )
